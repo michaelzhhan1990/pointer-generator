@@ -155,7 +155,6 @@ def run_training(model, batcher, sess_context_manager, sv, summary_writer):
     while True: # repeats until interrupted
       batch = batcher.next_batch()
 
-      tf.logging.info('running training step...')
       t0=time.time()
       results = model.run_train_step(sess, batch)
       t1=time.time()
@@ -170,6 +169,7 @@ def run_training(model, batcher, sess_context_manager, sv, summary_writer):
       # get the summaries and iteration number so we can write summaries to tensorboard
       summaries = results['summaries'] # we will write these summaries to tensorboard using summary_writer
       train_step = results['global_step'] # we need this to update our running average loss
+      tf.logging.info('finished training step ' + str(train_step))
 
       summary_writer.add_summary(summaries, train_step) # write the summaries
       if train_step % 100 == 0: # flush the summary writer every so often
