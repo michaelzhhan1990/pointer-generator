@@ -167,3 +167,7 @@ ENV/
 
 # Custom
 .idea/
+
+# Run scripts
+*.sh
+*.bat
