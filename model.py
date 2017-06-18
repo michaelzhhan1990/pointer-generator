@@ -28,6 +28,7 @@ import numpy as np
 import tensorflow as tf
 from attention_decoder import attention_decoder
 from tensorflow.contrib.tensorboard.plugins import projector
+import sys
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -126,7 +127,8 @@ class SummarizationModel(object):
 
 
   def _add_decoder(self, inputs):
-    """Add attention decoder to the graph. In train or eval mode, you call this once to get output on ALL steps. In decode (beam search) mode, you call this once for EACH decoder step.
+    """Add attention decoder to the graph. In train or eval mode, you call this once to get output on ALL steps. In
+    decode (beam search) mode, you call this once for EACH decoder step.
 
     Args:
       inputs: inputs to the decoder (word embeddings). A list of tensors shape (batch_size, emb_dim)
@@ -141,9 +143,15 @@ class SummarizationModel(object):
     hps = self._hps
     cell = tf.contrib.rnn.LSTMCell(hps.hidden_dim, state_is_tuple=True, initializer=self.rand_unif_init)
 
-    prev_coverage = self.prev_coverage if hps.mode=="decode" and hps.coverage else None # In decode mode, we run attention_decoder one step at a time and so need to pass in the previous step's coverage vector each time
+    prev_coverage = self.prev_coverage if hps.mode=="decode" and hps.coverage else None # In decode mode, we run
+    # attention_decoder one step at a time and so need to pass in the previous step's coverage vector each time
 
-    outputs, out_state, attn_dists, p_gens, coverage = attention_decoder(inputs, self._dec_in_state, self._enc_states, cell, initial_state_attention=(hps.mode=="decode"), pointer_gen=hps.pointer_gen, use_coverage=hps.coverage, prev_coverage=prev_coverage)
+    outputs, out_state, attn_dists, p_gens, coverage = attention_decoder(inputs, self._dec_in_state, self._enc_states,
+                                                                         cell,
+                                                                         initial_state_attention=(hps.mode == "decode"),
+                                                                         pointer_gen=hps.pointer_gen,
+                                                                         use_coverage=hps.coverage,
+                                                                         prev_coverage=prev_coverage)
 
     return outputs, out_state, attn_dists, p_gens, coverage
 
@@ -183,6 +191,16 @@ class SummarizationModel(object):
       # final_dists is a list length max_dec_steps; each entry is a tensor shape (batch_size, extended_vsize) giving the final distribution for that decoder timestep
       # Note that for decoder timesteps and examples corresponding to a [PAD] token, this is junk - ignore.
       final_dists = [vocab_dist + copy_dist for (vocab_dist,copy_dist) in zip(vocab_dists_extended, attn_dists_projected)]
+      # Issue #4: suggestion from user: 'rahul-iisc'
+      # OOV part of vocab is max_art_oov long. Not all the sequences in a batch will have max_art_oov tokens.
+      # That will cause some entries to be 0 in the distribution, which will result in NaN when calulating log_dists
+      # Add a very small number to prevent that.
+
+      def add_epsilon(dist, epsilon=sys.float_info.epsilon):
+        epsilon_mask = tf.ones_like(dist) * epsilon
+        return dist + epsilon_mask
+
+      final_dists = [add_epsilon(dist) for dist in final_dists]
 
       return final_dists
 

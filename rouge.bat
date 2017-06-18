@@ -1,0 +1,1 @@
+python run_summarization.py --mode=decode --data_path=D:\repos\cnn-dailymail\chunked\val_* --vocab_path=D:\repos\cnn-dailymail\finished_files\vocab --log_root=D:\datasets\summarization\logs --exp_name=firstday_one_day_trained --emb_dim=64 --max_enc_steps=200 --max_dec_steps=50 --vocab_size=25000 --single_pas=1

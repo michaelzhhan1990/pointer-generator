@@ -66,7 +66,8 @@ class Example(object):
 
     # If using pointer-generator mode, we need to store some extra info
     if hps.pointer_gen:
-      # Store a version of the enc_input where in-article OOVs are represented by their temporary OOV id; also store the in-article OOVs words themselves
+      # Store a version of the enc_input where in-article OOVs are represented by their temporary OOV id; also store
+      # the in-article OOVs words themselves
       self.enc_input_extend_vocab, self.article_oovs = data.article2ids(article_words, vocab)
 
       # Get a verison of the reference summary where in-article OOVs are represented by their temporary article OOV id
@@ -80,9 +81,11 @@ class Example(object):
     self.original_abstract = abstract
     self.original_abstract_sents = abstract_sentences
 
-
   def get_dec_inp_targ_seqs(self, sequence, max_len, start_id, stop_id):
-    """Given the reference summary as a sequence of tokens, return the input sequence for the decoder, and the target sequence which we will use to calculate loss. The sequence will be truncated if it is longer than max_len. The input sequence must start with the start_id and the target sequence must end with the stop_id (but not if it's been truncated).
+    """Given the reference summary as a sequence of tokens, return the input sequence for the decoder, and the target
+    sequence which we will use to calculate loss. The sequence will be truncated if it is longer than max_len. The
+    input sequence must start with the start_id and the target sequence must end with the stop_id (but not if it's been
+    truncated).
 
     Args:
       sequence: List of ids (integers)
