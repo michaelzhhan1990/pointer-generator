@@ -75,13 +75,15 @@ class BeamSearchDecoder(object):
       self._rouge_dec_dir = os.path.join(self._decode_dir, "decoded")
       if not os.path.exists(self._rouge_dec_dir): os.mkdir(self._rouge_dec_dir)
 
-
-  def decode(self):
+  def decode(self, input_batch):
     """Decode examples until data is exhausted (if FLAGS.single_pass) and return, or decode indefinitely, loading latest checkpoint at regular intervals"""
     t0 = time.time()
     counter = 0
     while True:
-      batch = self._batcher.next_batch()  # 1 example repeated across batch
+      if input_batch is not None:
+        batch = input_batch
+      else:
+        batch = self._batcher.next_batch()  # 1 example repeated across batch
       if batch is None: # finished decoding dataset in single_pass mode
         assert FLAGS.single_pass, "Dataset exhausted, but we are not in single_pass mode"
         tf.logging.info("Decoder has finished reading dataset for single_pass.")
@@ -111,6 +113,10 @@ class BeamSearchDecoder(object):
       except ValueError:
         decoded_words = decoded_words
       decoded_output = ' '.join(decoded_words) # single string
+
+      if input_batch is not None:  # Finish decoding given single example
+        print_results(article_withunks, abstract_withunks, decoded_output) # log output to screen
+        return
 
       if FLAGS.single_pass:
         self.write_for_rouge(original_abstract_sents, decoded_words, counter) # write ref summary and decoded summary to file, to eval with pyrouge later
