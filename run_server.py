@@ -29,6 +29,8 @@ from batcher import Batcher
 from model import SummarizationModel
 from decode import BeamSearchDecoder
 import util
+from flask import Flask
+import optparse
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -87,36 +89,21 @@ class Summarizer():
 
   def summarize(self, input_article):
     single_batch = self.batcher.article_to_batch(input_article)
-    self.decoder.decode(
-      single_batch)  # decode indefinitely (unless single_pass=True, in which case deocde the dataset exactly once)
+    return self.decoder.decode(single_batch)  # decode indefinitely (unless single_pass=True, in
+    # which case deocde the dataset exactly once)
 
 
-def main(unused_argv):
-  if len(unused_argv) != 1:  # prints a message if you've entered flags incorrectly
-    raise Exception("Problem with flags: %s" % unused_argv)
-
+def setup_summarizer(settings):
   tf.logging.set_verbosity(tf.logging.INFO)  # choose what level of logging you want
-  tf.logging.info('Starting seq2seq_attention in %s mode...', (FLAGS.mode))
+  tf.logging.info('Starting seq2seq_attention ')
 
   # Change log_root to FLAGS.log_root/FLAGS.exp_name and create the dir if necessary
-  FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
-  if not os.path.exists(FLAGS.log_root):
-    if FLAGS.mode == "train":
-      os.makedirs(FLAGS.log_root)
-    else:
-      raise Exception("Logdir %s doesn't exist. Run in train mode to create it." % (FLAGS.log_root))
-
-  vocab = Vocab(FLAGS.vocab_path, FLAGS.vocab_size)  # create a vocabulary
+  vocab = Vocab(settings.vocab_path, settings.vocab_size)  # create a vocabulary
 
   # If in decode mode, set batch_size = beam_size
   # Reason: in decode mode, we decode one example at a time.
   # On each step, we have beam_size-many hypotheses in the beam, so we need to make a batch of these hypotheses.
-  if FLAGS.mode == 'decode':
-    FLAGS.batch_size = FLAGS.beam_size
-
-  # If single_pass=True, check we're in decode mode
-  if FLAGS.single_pass and FLAGS.mode != 'decode':
-    raise Exception("The single_pass flag should only be True in decode mode")
+  FLAGS.batch_size = FLAGS.beam_size
 
   # Make a namedtuple hps, containing the values of the hyperparameters that the model needs
   hparam_list = ['mode', 'lr', 'adagrad_init_acc', 'rand_unif_init_mag', 'trunc_norm_init_std', 'max_grad_norm',
@@ -129,7 +116,7 @@ def main(unused_argv):
   hps = namedtuple("HParams", list(hps_dict.keys()))(**hps_dict)
 
   # Create a batcher object that will create minibatches of data
-  batcher = Batcher(FLAGS.data_path, vocab, hps, single_pass=FLAGS.single_pass)
+  batcher = Batcher(settings.data_path, vocab, hps, single_pass=FLAGS.single_pass)
 
   tf.set_random_seed(111)  # a seed value for randomness
 
@@ -140,8 +127,38 @@ def main(unused_argv):
     max_dec_steps=1)  # The model is configured with max_dec_steps=1 because we only ever run one step of the decoder at a time (to do beam search). Note that the batcher is initialized with max_dec_steps equal to e.g. 100 because the batches need to contain the full summaries
   model = SummarizationModel(decode_model_hps, vocab)
   decoder = BeamSearchDecoder(model, batcher, vocab)
-  return decoder, batcher
+  return Summarizer(decoder, batcher)
 
 
-if __name__ == '__main__':
-  decoder, batcher = tf.app.run()
+
+
+class Settings:
+  def __init__(self, vocab_path, vocab_size, data_path):
+    self.vocab_path = vocab_path
+    self.vocab_size = vocab_size
+    self.data_path = data_path
+
+
+parser = optparse.OptionParser()
+parser.add_option("-L", "--log_root", help="log root")
+parser.add_option("-V", "--vocab_path", help="vocab file")
+parser.add_option("-D", "--data_path", help="chunked data file path")
+options, _ = parser.parse_args()
+
+FLAGS.log_root = options.log_root
+vocab_path = options.vocab_path
+data_path = options.data_path
+FLAGS.mode = 'decode'
+settings = Settings(vocab_path=vocab_path, vocab_size=50000, data_path=data_path)
+summarizer = setup_summarizer(settings)
+
+app = Flask(__name__)
+@app.route('/')
+def home():
+  return 'Welcome to Summarizer'
+
+
+@app.route('/summarize/<text>')
+def mirror(text):
+  return 'Summarized text is \n%s' % summarizer.summarize(text)
+app.run()

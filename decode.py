@@ -116,7 +116,7 @@ class BeamSearchDecoder(object):
 
       if input_batch is not None:  # Finish decoding given single example
         print_results(article_withunks, abstract_withunks, decoded_output) # log output to screen
-        return
+        return decoded_output
 
       if FLAGS.single_pass:
         self.write_for_rouge(original_abstract_sents, decoded_words, counter) # write ref summary and decoded summary to file, to eval with pyrouge later
