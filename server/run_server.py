@@ -19,6 +19,8 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import sys
+
+sys.path.append('..')
 import time
 import os
 import tensorflow as tf
@@ -161,7 +163,14 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-  return render_template('index.html')
+  return render_template('index.html', summary='N/A')
+
+
+@app.route('/', methods=['POST'])
+def index_post():
+  text = request.form['article']
+  summarized_text = text.upper()
+  return render_template('index.html', summary=summarized_text)
 
 
 @app.route('/summarize/<text>')
