@@ -378,9 +378,3 @@ class Batcher(object):
         tf.logging.warning('Found an example with empty article text. Skipping it.')
       else:
         yield (article_text, abstract_text)
-
-  def article_to_batch(self, article):
-    abstract_sentences = ''
-    example = Example(article, abstract_sentences, self._vocab, self._hps)  # Process into an Example.
-    repeated_example = [example for _ in range(self._hps.batch_size)]
-    return Batch(repeated_example, self._hps, self._vocab)

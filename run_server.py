@@ -25,7 +25,7 @@ import tensorflow as tf
 import numpy as np
 from collections import namedtuple
 from data import Vocab
-from batcher import Batcher
+from batcher import Example, Batch
 from model import SummarizationModel
 from decode import BeamSearchDecoder
 import util
@@ -81,16 +81,27 @@ tf.app.flags.DEFINE_float('cov_loss_wt', 1.0,
 tf.app.flags.DEFINE_boolean('convert_to_coverage_model', False,
                             'Convert a non-coverage model to a coverage model. Turn this on and run in train mode. Your current model will be copied to a new version (same name with _cov_init appended) that will be ready to run with coverage flag turned on, for the coverage training stage.')
 
+minimum_summarization_length = 200
+
 
 class Summarizer():
-  def __init__(self, decoder, batcher):
+  def __init__(self, decoder, vocab, hps):
     self.decoder = decoder
-    self.batcher = batcher
+    self.vocab = vocab
+    self.hps = hps
 
   def summarize(self, input_article):
-    single_batch = self.batcher.article_to_batch(input_article)
+    if len(input_article) < minimum_summarization_length:
+      return input_article
+    single_batch = self.article_to_batch(input_article)
     return self.decoder.decode(single_batch)  # decode indefinitely (unless single_pass=True, in
     # which case deocde the dataset exactly once)
+
+  def article_to_batch(self, article):
+    abstract_sentences = ''
+    example = Example(article, abstract_sentences, self.vocab, self.hps)  # Process into an Example.
+    repeated_example = [example for _ in range(self.hps.batch_size)]
+    return Batch(repeated_example, self.hps, self.vocab)
 
 
 def setup_summarizer(settings):
@@ -115,9 +126,6 @@ def setup_summarizer(settings):
       hps_dict[key] = val  # add it to the dict
   hps = namedtuple("HParams", list(hps_dict.keys()))(**hps_dict)
 
-  # Create a batcher object that will create minibatches of data
-  batcher = Batcher(settings.data_path, vocab, hps, single_pass=FLAGS.single_pass)
-
   tf.set_random_seed(111)  # a seed value for randomness
 
   if hps.mode != 'decode':
@@ -126,33 +134,30 @@ def setup_summarizer(settings):
   decode_model_hps = hps._replace(
     max_dec_steps=1)  # The model is configured with max_dec_steps=1 because we only ever run one step of the decoder at a time (to do beam search). Note that the batcher is initialized with max_dec_steps equal to e.g. 100 because the batches need to contain the full summaries
   model = SummarizationModel(decode_model_hps, vocab)
-  decoder = BeamSearchDecoder(model, batcher, vocab)
-  return Summarizer(decoder, batcher)
-
-
+  decoder = BeamSearchDecoder(model, None, vocab)
+  return Summarizer(decoder, vocab=vocab, hps=hps)
 
 
 class Settings:
-  def __init__(self, vocab_path, vocab_size, data_path):
+  def __init__(self, vocab_path, vocab_size):
     self.vocab_path = vocab_path
     self.vocab_size = vocab_size
-    self.data_path = data_path
 
 
 parser = optparse.OptionParser()
 parser.add_option("-L", "--log_root", help="log root")
 parser.add_option("-V", "--vocab_path", help="vocab file")
-parser.add_option("-D", "--data_path", help="chunked data file path")
 options, _ = parser.parse_args()
 
 FLAGS.log_root = options.log_root
 vocab_path = options.vocab_path
-data_path = options.data_path
 FLAGS.mode = 'decode'
-settings = Settings(vocab_path=vocab_path, vocab_size=50000, data_path=data_path)
+settings = Settings(vocab_path=vocab_path, vocab_size=50000)
 summarizer = setup_summarizer(settings)
 
 app = Flask(__name__)
+
+
 @app.route('/')
 def home():
   return 'Welcome to Summarizer'
@@ -160,5 +165,7 @@ def home():
 
 @app.route('/summarize/<text>')
 def mirror(text):
-  return 'Summarized text is \n%s' % summarizer.summarize(text)
+  return 'Summarized text is <br> %s' % summarizer.summarize(text)
+
+
 app.run()
