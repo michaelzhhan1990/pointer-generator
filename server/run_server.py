@@ -33,6 +33,7 @@ from decode import BeamSearchDecoder
 import util
 from flask import Flask
 import optparse
+from nltk.tokenize import word_tokenize
 
 FLAGS = tf.app.flags.FLAGS
 from flask import render_template, flash, redirect, url_for, request
@@ -96,7 +97,8 @@ class Summarizer():
   def summarize(self, input_article):
     if len(input_article) < minimum_summarization_length:
       return input_article
-    single_batch = self.article_to_batch(input_article)
+    tokenized_article = ' '.join(word_tokenize(input_article))
+    single_batch = self.article_to_batch(tokenized_article)
     return self.decoder.decode(single_batch)  # decode indefinitely (unless single_pass=True, in
     # which case deocde the dataset exactly once)
 
@@ -169,13 +171,13 @@ def index():
 @app.route('/', methods=['POST'])
 def index_post():
   text = request.form['article']
-  summarized_text = text.upper()
+  summarized_text = summarizer.summarize(text)
   return render_template('index.html', summary=summarized_text)
 
 
 @app.route('/summarize/<text>')
-def mirror(text):
-  return 'Summarized text is <br> %s' % summarizer.summarize(text)
+def summarize(text):
+  return summarizer.summarize(text)
 
 
 app.run()
