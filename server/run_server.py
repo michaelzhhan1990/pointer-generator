@@ -33,6 +33,7 @@ from flask import Flask
 import optparse
 
 FLAGS = tf.app.flags.FLAGS
+from flask import render_template, flash, redirect, url_for, request
 
 # Console article input
 tf.app.flags.DEFINE_string('input_article', '', 'To summarize a single article given in command line, '
@@ -159,8 +160,8 @@ app = Flask(__name__)
 
 
 @app.route('/')
-def home():
-  return 'Welcome to Summarizer'
+def index():
+  return render_template('index.html')
 
 
 @app.route('/summarize/<text>')

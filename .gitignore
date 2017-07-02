@@ -171,3 +171,7 @@ ENV/
 # Run scripts
 *.sh
 *.bat
+
+*.png
+*.swp
+*.ico
