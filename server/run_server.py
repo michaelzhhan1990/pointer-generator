@@ -86,6 +86,8 @@ tf.app.flags.DEFINE_boolean('convert_to_coverage_model', False,
                             'Convert a non-coverage model to a coverage model. Turn this on and run in train mode. Your current model will be copied to a new version (same name with _cov_init appended) that will be ready to run with coverage flag turned on, for the coverage training stage.')
 
 minimum_summarization_length = 200
+with open('templates/fish_article.txt') as f:
+  default_article = f.read()
 
 
 class Summarizer():
@@ -165,14 +167,14 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-  return render_template('index.html', summary='N/A')
+  return render_template('index.html', summary='N/A', article=default_article)
 
 
 @app.route('/', methods=['POST'])
 def index_post():
-  text = request.form['article']
-  summarized_text = summarizer.summarize(text)
-  return render_template('index.html', summary=summarized_text)
+  article = request.form['article']
+  summarized_text = summarizer.summarize(article)
+  return render_template('index.html', summary=summarized_text, article=article)
 
 
 @app.route('/summarize/<text>')
