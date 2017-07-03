@@ -182,4 +182,4 @@ def summarize(text):
   return summarizer.summarize(text)
 
 
-app.run()
+app.run(host='0.0.0.0')
