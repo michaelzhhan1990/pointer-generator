@@ -35,9 +35,10 @@ FLAGS = tf.app.flags.FLAGS
 class SummarizationModel(object):
   """A class to represent a sequence-to-sequence model for text summarization. Supports both baseline mode, pointer-generator mode, and coverage"""
 
-  def __init__(self, hps, vocab):
+  def __init__(self, hps, vocab, default_device):
     self._hps = hps
     self._vocab = vocab
+    self._default_device = default_device
 
   def _add_placeholders(self):
     """Add placeholders to the graph. These are entry points for any input data."""
@@ -316,7 +317,7 @@ class SummarizationModel(object):
     gradients = tf.gradients(loss_to_minimize, tvars, aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE)
 
     # Clip the gradients
-    with tf.device("/gpu:0"):
+    with tf.device(self._default_device):
       grads, global_norm = tf.clip_by_global_norm(gradients, self._hps.max_grad_norm)
 
     # Add a summary
@@ -324,7 +325,7 @@ class SummarizationModel(object):
 
     # Apply adagrad optimizer
     optimizer = tf.train.AdagradOptimizer(self._hps.lr, initial_accumulator_value=self._hps.adagrad_init_acc)
-    with tf.device("/gpu:0"):
+    with tf.device(self._default_device):
       self._train_op = optimizer.apply_gradients(list(zip(grads, tvars)), global_step=self.global_step, name='train_step')
 
 
@@ -333,7 +334,7 @@ class SummarizationModel(object):
     tf.logging.info('Building graph...')
     t0 = time.time()
     self._add_placeholders()
-    with tf.device("/gpu:0"):
+    with tf.device(self._default_device):
       self._add_seq2seq()
     self.global_step = tf.Variable(0, name='global_step', trainable=False)
     if self._hps.mode == 'train':

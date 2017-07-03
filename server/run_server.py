@@ -15,28 +15,24 @@
 # ==============================================================================
 
 """This is the top-level file to train, evaluate or test your summarization model"""
-from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import print_function
 
 import sys
 
+from server.summarizer import Summarizer
+
 sys.path.append('..')
-import time
-import os
 import tensorflow as tf
-import numpy as np
 from collections import namedtuple
 from data import Vocab
-from batcher import Example, Batch
 from model import SummarizationModel
 from decode import BeamSearchDecoder
-import util
 from flask import Flask
 import optparse
-from nltk.tokenize import word_tokenize
 
 FLAGS = tf.app.flags.FLAGS
-from flask import render_template, flash, redirect, url_for, request
+from flask import render_template, request
 
 # Console article input
 tf.app.flags.DEFINE_string('input_article', '', 'To summarize a single article given in command line, '
@@ -85,30 +81,8 @@ tf.app.flags.DEFINE_float('cov_loss_wt', 1.0,
 tf.app.flags.DEFINE_boolean('convert_to_coverage_model', False,
                             'Convert a non-coverage model to a coverage model. Turn this on and run in train mode. Your current model will be copied to a new version (same name with _cov_init appended) that will be ready to run with coverage flag turned on, for the coverage training stage.')
 
-minimum_summarization_length = 200
 with open('templates/fish_article.txt') as f:
   default_article = f.read()
-
-
-class Summarizer():
-  def __init__(self, decoder, vocab, hps):
-    self.decoder = decoder
-    self.vocab = vocab
-    self.hps = hps
-
-  def summarize(self, input_article):
-    if len(input_article) < minimum_summarization_length:
-      return input_article
-    tokenized_article = ' '.join(word_tokenize(input_article))
-    single_batch = self.article_to_batch(tokenized_article)
-    return self.decoder.decode(single_batch)  # decode indefinitely (unless single_pass=True, in
-    # which case deocde the dataset exactly once)
-
-  def article_to_batch(self, article):
-    abstract_sentences = ''
-    example = Example(article, abstract_sentences, self.vocab, self.hps)  # Process into an Example.
-    repeated_example = [example for _ in range(self.hps.batch_size)]
-    return Batch(repeated_example, self.hps, self.vocab)
 
 
 def setup_summarizer(settings):
@@ -140,7 +114,8 @@ def setup_summarizer(settings):
   decode_model_hps = hps  # This will be the hyperparameters for the decoder model
   decode_model_hps = hps._replace(
     max_dec_steps=1)  # The model is configured with max_dec_steps=1 because we only ever run one step of the decoder at a time (to do beam search). Note that the batcher is initialized with max_dec_steps equal to e.g. 100 because the batches need to contain the full summaries
-  model = SummarizationModel(decode_model_hps, vocab)
+  serving_device = '/cpu:0'
+  model = SummarizationModel(decode_model_hps, vocab, default_device=serving_device)
   decoder = BeamSearchDecoder(model, None, vocab)
   return Summarizer(decoder, vocab=vocab, hps=hps)
 

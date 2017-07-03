@@ -28,6 +28,7 @@ from data import Vocab
 from batcher import Batcher
 from model import SummarizationModel
 from decode import BeamSearchDecoder
+from server import summarizer
 import util
 
 FLAGS = tf.app.flags.FLAGS
@@ -50,6 +51,7 @@ tf.app.flags.DEFINE_boolean('single_pass', False,
 tf.app.flags.DEFINE_string('log_root', '', 'Root directory for all logging.')
 tf.app.flags.DEFINE_string('exp_name', '',
                            'Name for experiment. Logs will be saved in a directory with this name, under log_root.')
+tf.app.flags.DEFINE_string('device', '/gpu:0', 'Whether to use gpu or cpu')
 
 # Hyperparameters
 tf.app.flags.DEFINE_integer('hidden_dim', 256, 'dimension of RNN hidden states')
@@ -79,7 +81,6 @@ tf.app.flags.DEFINE_float('cov_loss_wt', 1.0,
                           'Weight of coverage loss (lambda in the paper). If zero, then no incentive to minimize coverage loss.')
 tf.app.flags.DEFINE_boolean('convert_to_coverage_model', False,
                             'Convert a non-coverage model to a coverage model. Turn this on and run in train mode. Your current model will be copied to a new version (same name with _cov_init appended) that will be ready to run with coverage flag turned on, for the coverage training stage.')
-
 
 def calc_running_avg_loss(loss, running_avg_loss, summary_writer, step, decay=0.99):
   """Calculate the running average loss via exponential decay.
@@ -137,8 +138,7 @@ def setup_training(model, batcher):
   train_dir = os.path.join(FLAGS.log_root, "train")
   if not os.path.exists(train_dir): os.makedirs(train_dir)
 
-  default_device = tf.device('/cpu:0')
-  with default_device:
+  with tf.device(FLAGS.device):
     model.build_graph()  # build the graph
     if FLAGS.convert_to_coverage_model:
       assert FLAGS.coverage, "To convert your non-coverage model to a coverage model, run with convert_to_coverage_model=True and coverage=True"
@@ -287,20 +287,21 @@ def main(unused_argv):
 
   if hps.mode == 'train':
     print("creating model...")
-    model = SummarizationModel(hps, vocab)
+    model = SummarizationModel(hps, vocab, FLAGS.device)
     setup_training(model, batcher)
   elif hps.mode == 'eval':
-    model = SummarizationModel(hps, vocab)
+    model = SummarizationModel(hps, vocab, FLAGS.device)
     run_eval(model, batcher, vocab)
   elif hps.mode == 'decode':
     decode_model_hps = hps  # This will be the hyperparameters for the decoder model
     decode_model_hps = hps._replace(
       max_dec_steps=1)  # The model is configured with max_dec_steps=1 because we only ever run one step of the decoder at a time (to do beam search). Note that the batcher is initialized with max_dec_steps equal to e.g. 100 because the batches need to contain the full summaries
-    model = SummarizationModel(decode_model_hps, vocab)
+    model = SummarizationModel(decode_model_hps, vocab, FLAGS.device)
     decoder = BeamSearchDecoder(model, batcher, vocab)
     input_article = FLAGS.input_article  # Command line input single article to summarize
     if input_article is not '':
-      single_batch = batcher.article_to_batch(input_article)
+      sm = summarizer.Summarizer(decoder, vocab, hps)
+      single_batch = sm.article_to_batch(input_article)
     else:
       single_batch = None
     decoder.decode(
