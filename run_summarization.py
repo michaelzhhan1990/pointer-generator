@@ -57,6 +57,7 @@ tf.app.flags.DEFINE_integer('max_dec_steps', 100, 'max timesteps of decoder (max
 tf.app.flags.DEFINE_integer('beam_size', 4, 'beam size for beam search decoding.')
 tf.app.flags.DEFINE_integer('min_dec_steps', 35, 'Minimum sequence length of generated summary. Applies only for beam search decoding mode')
 tf.app.flags.DEFINE_integer('vocab_size', 50000, 'Size of vocabulary. These will be read from the vocabulary file in order. If the vocabulary file contains fewer words than this number, or if this number is set to 0, will take all words in the vocabulary file.')
+tf.app.flags.DEFINE_integer('training_steps', 240000, 'Number of steps to train for during training.')
 tf.app.flags.DEFINE_float('lr', 0.15, 'learning rate')
 tf.app.flags.DEFINE_float('adagrad_init_acc', 0.1, 'initial accumulator value for Adagrad')
 tf.app.flags.DEFINE_float('rand_unif_init_mag', 0.02, 'magnitude for lstm cells random uniform inititalization')
@@ -158,7 +159,8 @@ def run_training(model, batcher, sess_context_manager, sv, summary_writer):
   """Repeatedly runs training iterations, logging loss to screen and writing summaries"""
   tf.logging.info("starting run_training")
   with sess_context_manager as sess:
-    while True: # repeats until interrupted
+    train_step = 0
+    while train_step < FLAGS.training_steps: # repeats for training_steps
       batch = batcher.next_batch()
 
       t0=time.time()
@@ -178,8 +180,10 @@ def run_training(model, batcher, sess_context_manager, sv, summary_writer):
       tf.logging.info('finished training step ' + str(train_step))
 
       summary_writer.add_summary(summaries, train_step) # write the summaries
-      if train_step % 100 == 0: # flush the summary writer every so often
+      if (train_step + 1) % 100 == 0: # flush the summary writer every so often
         summary_writer.flush()
+    tf.logging.info('Reached end of training')
+    summary_writer.flush()
 
 
 def run_eval(model, batcher, vocab):

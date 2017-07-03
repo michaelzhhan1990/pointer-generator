@@ -1,2 +1,4 @@
-tensorflow
+tensorflow==1.0.1
 pyrouge
+Flask
+nltk
