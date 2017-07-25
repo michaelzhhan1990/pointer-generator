@@ -462,8 +462,19 @@ class SummarizationModel(object):
       assert len(new_coverage) == beam_size
     else:
       new_coverage = [None for _ in range(beam_size)]
+    '''
+    print('start printing')
+    print(results['probs'])
+    print(beam_size)
+    print(length)
+    print("end printing")
+    '''
+    for i in range(len(results['probs'])):
+        for j in range(len(results['probs'][0])):
+            results['probs'][i][j]+=+1/length*len_hyper_para
+    return results['ids'], results['probs'], new_states, attn_dists, p_gens, new_coverage
 
-    return results['ids'], [results['probs'][i]+1/length*len_hyper_para for i in range(beam_size)], new_states, attn_dists, p_gens, new_coverage
+    #return results['ids'], [results['probs'][i]+1/length*len_hyper_para for i in range(beam_size)], new_states, attn_dists, p_gens, new_coverage
 
 
 def _mask_and_avg(values, padding_mask):
