@@ -388,7 +388,7 @@ class SummarizationModel(object):
     return enc_states, dec_in_state
 
 
-  def decode_onestep(self, sess, batch, latest_tokens, enc_states, dec_init_states, prev_coverage):
+  def decode_onestep(self, sess, batch, latest_tokens, enc_states, dec_init_states, prev_coverage,length,len_hyper_para):
     """For beam search decoding. Run the decoder for one step.
 
     Args:
@@ -463,7 +463,7 @@ class SummarizationModel(object):
     else:
       new_coverage = [None for _ in range(beam_size)]
 
-    return results['ids'], results['probs'], new_states, attn_dists, p_gens, new_coverage
+    return results['ids'], [results['probs'][i]+1/length*len_hyper_para for i in range(beam_size)], new_states, attn_dists, p_gens, new_coverage
 
 
 def _mask_and_avg(values, padding_mask):

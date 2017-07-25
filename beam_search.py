@@ -123,7 +123,9 @@ def run_beam_search(sess, model, vocab, batch):
                         latest_tokens=latest_tokens,
                         enc_states=enc_states,
                         dec_init_states=states,
-                        prev_coverage=prev_coverage)
+                        prev_coverage=prev_coverage,
+                        length=steps+1,
+                        len_hyper_para=0.5)
 
     # Extend each hypothesis and collect them all in all_hyps
     all_hyps = []
